@@ -1,0 +1,226 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Customer {
+  customer_id     Int      @id @default(autoincrement())
+  full_name       String   @db.VarChar(100)
+  email           String   @unique @db.VarChar(100)
+  password_hash   String
+  phone           String?  @db.VarChar(20)
+  dob             DateTime? @db.Date
+  gender          String?  @db.VarChar(20)
+  address         String?
+  membership_tier String?  @db.VarChar(20) @default("Standard")
+  reward_points   Int      @default(0)
+  created_at      DateTime @default(now())
+
+  prescriptions      Prescription[]
+  orders             Order[]
+  reward_transactions RewardTransaction[]
+  carts              Cart[]
+
+  @@map("customer")
+}
+
+model Admin {
+  admin_id      Int      @id @default(autoincrement())
+  name          String   @db.VarChar(100)
+  email         String   @unique @db.VarChar(100)
+  password_hash String
+  created_at    DateTime @default(now())
+
+  @@map("admin")
+}
+
+model Category {
+  category_id   Int      @id @default(autoincrement())
+  category_name String   @db.VarChar(100)
+  description   String?
+
+  medicines Medicine[]
+
+  @@map("category")
+}
+
+model Medicine {
+  medicine_id          Int      @id @default(autoincrement())
+  medicine_name        String   @db.VarChar(200)
+  strength             String?  @db.VarChar(50)
+  manufacturer         String?  @db.VarChar(200)
+  price                Decimal  @db.Decimal(10, 2)
+  manufacturing_date   DateTime? @db.Date
+  expiry_date          DateTime? @db.Date
+  description          String?
+  requires_prescription Boolean @default(false)
+  image_url            String?
+  category_id          Int?
+
+  category    Category?  @relation(fields: [category_id], references: [category_id])
+  inventory   Inventory?
+  order_items OrderItem[]
+  supplier_medicines SupplierMedicine[]
+  cart_items  CartItem[]
+
+  @@map("medicine")
+}
+
+model Inventory {
+  inventory_id   Int      @id @default(autoincrement())
+  medicine_id    Int      @unique
+  stock_quantity Int      @default(0)
+  reorder_level  Int      @default(10)
+  last_updated   DateTime @default(now())
+
+  medicine Medicine @relation(fields: [medicine_id], references: [medicine_id])
+
+  @@map("inventory")
+}
+
+model Supplier {
+  supplier_id   Int      @id @default(autoincrement())
+  supplier_name String   @db.VarChar(200)
+  email         String?  @db.VarChar(100)
+  phone         String?  @db.VarChar(20)
+  address       String?
+
+  supplier_medicines SupplierMedicine[]
+
+  @@map("supplier")
+}
+
+model SupplierMedicine {
+  supplier_medicine_id Int     @id @default(autoincrement())
+  supplier_id          Int
+  medicine_id          Int
+  purchase_price       Decimal @db.Decimal(10, 2)
+
+  supplier Supplier @relation(fields: [supplier_id], references: [supplier_id])
+  medicine Medicine @relation(fields: [medicine_id], references: [medicine_id])
+
+  @@map("supplier_medicine")
+}
+
+model Prescription {
+  prescription_id          Int      @id @default(autoincrement())
+  customer_id              Int
+  doctor_name              String?  @db.VarChar(200)
+  doctor_registration_number String? @db.VarChar(100)
+  issue_date               DateTime? @db.Date
+  file_url                 String?
+  verification_status      String   @default("Pending") @db.VarChar(20)
+
+  customer Customer @relation(fields: [customer_id], references: [customer_id])
+  orders   Order[]
+
+  @@map("prescription")
+}
+
+model Order {
+  order_id        Int      @id @default(autoincrement())
+  customer_id     Int
+  prescription_id Int?
+  order_date      DateTime @default(now())
+  order_status    String   @default("Pending") @db.VarChar(30)
+  subtotal        Decimal  @default(0) @db.Decimal(10, 2)
+  discount        Decimal  @default(0) @db.Decimal(10, 2)
+  total_amount    Decimal  @default(0) @db.Decimal(10, 2)
+
+  customer     Customer      @relation(fields: [customer_id], references: [customer_id])
+  prescription Prescription? @relation(fields: [prescription_id], references: [prescription_id])
+  order_items  OrderItem[]
+  payment      Payment?
+  delivery     Delivery?
+
+  @@map("orders")
+}
+
+model OrderItem {
+  order_item_id Int     @id @default(autoincrement())
+  order_id      Int
+  medicine_id   Int
+  quantity      Int
+  unit_price    Decimal @db.Decimal(10, 2)
+  item_total    Decimal @db.Decimal(10, 2)
+
+  order    Order    @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicine_id], references: [medicine_id])
+
+  @@map("order_items")
+}
+
+model Payment {
+  payment_id     Int      @id @default(autoincrement())
+  order_id       Int      @unique
+  payment_mode   String?  @db.VarChar(30)
+  payment_amount Decimal  @db.Decimal(10, 2)
+  payment_status String   @default("Pending") @db.VarChar(30)
+  payment_date   DateTime @default(now())
+
+  order Order @relation(fields: [order_id], references: [order_id])
+
+  @@map("payment")
+}
+
+model Delivery {
+  delivery_id      Int      @id @default(autoincrement())
+  order_id         Int      @unique
+  delivery_address String?
+  delivery_date    DateTime? @db.Date
+  delivery_fee     Decimal  @default(0) @db.Decimal(10, 2)
+  delivery_status  String   @default("Processing") @db.VarChar(30)
+
+  order Order @relation(fields: [order_id], references: [order_id])
+
+  @@map("delivery")
+}
+
+model RewardTransaction {
+  reward_id        Int      @id @default(autoincrement())
+  customer_id      Int
+  points_earned    Int      @default(0)
+  points_used      Int      @default(0)
+  transaction_date DateTime @default(now())
+
+  customer Customer @relation(fields: [customer_id], references: [customer_id])
+
+  @@map("reward_transaction")
+}
+
+model Cart {
+  cart_id     Int      @id @default(autoincrement())
+  customer_id Int
+  created_at  DateTime @default(now())
+
+  customer   Customer   @relation(fields: [customer_id], references: [customer_id])
+  cart_items CartItem[]
+
+  @@map("cart")
+}
+
+model CartItem {
+  cart_item_id Int @id @default(autoincrement())
+  cart_id      Int
+  medicine_id  Int
+  quantity     Int @default(1)
+
+  cart     Cart     @relation(fields: [cart_id], references: [cart_id], onDelete: Cascade)
+  medicine Medicine @relation(fields: [medicine_id], references: [medicine_id])
+
+  @@map("cart_item")
+}
+
+model AuditLog {
+  log_id       Int      @id @default(autoincrement())
+  action_type  String?  @db.VarChar(100)
+  table_name   String?  @db.VarChar(100)
+  performed_by String?  @db.VarChar(100)
+  action_time  DateTime @default(now())
+  description  String?
+
+  @@map("audit_log")
+}
